@@ -5,8 +5,8 @@ Converts EPS images to PNG format.
 
 import re
 
+from pathlib import Path
 from subprocess import run, PIPE, STDOUT, CalledProcessError
-from os import remove
 
 from foliant.preprocessors.base import BasePreprocessor
 
@@ -24,7 +24,7 @@ class Preprocessor(BasePreprocessor):
             r"!\[(?P<caption>.+)\]\((?P<path>.+)\.eps\)"
         )
 
-    def process_image_paths(self, content: str) -> str:
+    def process_eps_paths(self, content: str) -> str:
 
         fixed_content = re.sub(
             self.pattern,
@@ -41,23 +41,23 @@ class Preprocessor(BasePreprocessor):
                     content = markdown_file.read()
 
                 with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                    markdown_file.write(self.process_image_paths(content))
+                    markdown_file.write(self.process_eps_paths(content))
 
             mogrify_geometry = ''
 
             if self.options["image_width"] > 0:
-                mogrify_geometry = f'-geometry {self.options["image_width"]} '
+                mogrify_geometry = f'-geometry {self.options["image_width"]}'
 
             for eps_file_path in self.working_dir.rglob('*.eps'):
                 try:
-                    command = f'{self.options["mogrify_path"]} -format png {mogrify_geometry}{eps_file_path}'
+                    command = f'{self.options["mogrify_path"]} -format png {mogrify_geometry} {eps_file_path}'
                     run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
                 except CalledProcessError as exception:
                     raise RuntimeError(f'Failed: {exception.output.decode()}')
 
                 try:
-                    remove(eps_file_path)
+                    Path(eps_file_path).unlink()
 
-                except OSError:
+                except PermissionError:
                     pass
