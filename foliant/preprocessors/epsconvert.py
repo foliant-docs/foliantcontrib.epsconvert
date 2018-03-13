@@ -14,7 +14,8 @@ from foliant.preprocessors.base import BasePreprocessor
 class Preprocessor(BasePreprocessor):
     defaults = {
         'mogrify_path': 'mogrify',
-        'image_width': 0
+        'image_width': 0,
+        'diagrams_cache_dir': Path('.diagramscache'),
     }
 
     def __init__(self, *args, **kwargs):
@@ -61,3 +62,14 @@ class Preprocessor(BasePreprocessor):
 
                 except PermissionError:
                     pass
+
+            if self.options["diagrams_cache_dir"].is_dir():
+                for eps_file_path in self.options["diagrams_cache_dir"].rglob('*.eps'):
+                    command = f'{self.options["mogrify_path"]} -format png {mogrify_geometry} {eps_file_path}'
+
+                    if not Path(eps_file_path).with_suffix('.png').is_file():
+                        try:
+                            run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+
+                        except CalledProcessError as exception:
+                            raise RuntimeError(f'Failed: {exception.output.decode()}')
