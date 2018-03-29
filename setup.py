@@ -15,7 +15,7 @@ setup(
     name='foliantcontrib.epsconvert',
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
-    version='1.0.2',
+    version='1.0.3',
     author='Artemy Lomov',
     author_email='artemy@lomov.ru',
     url='https://github.com/foliant-docs/foliantcontrib.epsconvert',
