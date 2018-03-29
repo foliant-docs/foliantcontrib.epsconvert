@@ -6,6 +6,7 @@ Converts EPS images to PNG format.
 import re
 
 from pathlib import Path
+from hashlib import md5
 from subprocess import run, PIPE, STDOUT, CalledProcessError
 
 from foliant.preprocessors.base import BasePreprocessor
@@ -13,27 +14,60 @@ from foliant.preprocessors.base import BasePreprocessor
 
 class Preprocessor(BasePreprocessor):
     defaults = {
-        'mogrify_path': 'mogrify',
+        'convert_path': 'convert',
+        'cache_dir': Path('.epsconvertcache'),
         'image_width': 0,
-        'diagrams_cache_dir': Path('.diagramscache'),
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.pattern = re.compile(
-            r"!\[(?P<caption>.+)\]\((?P<path>.+)\.eps\)"
-        )
+        self._source_img_ref_pattern = re.compile("!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+\/[^\/]+\.eps)\)")
+        self._cache_path = self.project_path / self.options['cache_dir']
+        self._current_dir = self.working_dir
 
-    def process_eps_paths(self, content: str) -> str:
+    def _process_epsconvert(self, img_caption: str, img_path: str) -> str:
+        img_path_hash = md5(f'{img_path}'.encode())
+        img_path_hash.update(f'{self.options["image_width"]}'.encode())
 
-        fixed_content = re.sub(
-            self.pattern,
-            r"![\g<caption>](\g<path>.png)",
-            content
-        )
+        source_img_path = self._current_dir / img_path
+        cached_img_path = self._cache_path / f'{img_path_hash.hexdigest()}.png'
+        cached_img_ref = f'![{img_caption}]({cached_img_path.absolute().as_posix()})'
 
-        return fixed_content
+        if cached_img_path.exists():
+            return cached_img_ref
+
+        cached_img_path.parent.mkdir(parents=True, exist_ok=True)
+
+        resize_options = ''
+
+        if self.options["image_width"] > 0:
+            resize_options = f'-resize {self.options["image_width"]}'
+
+        try:
+            command = f'{self.options["convert_path"]} ' \
+                      f'{source_img_path.absolute().as_posix()} ' \
+                      f'-format png ' \
+                      f'{resize_options} ' \
+                      f'{cached_img_path.absolute().as_posix()}'
+
+            run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+
+        except CalledProcessError as exception:
+            raise RuntimeError(
+                f'Processing of image {img_path} failed: {exception.output.decode()}'
+            )
+
+        return cached_img_ref
+
+    def process_epsconvert(self, content: str) -> str:
+        def _sub(source_img_ref) -> str:
+            return self._process_epsconvert(
+                source_img_ref.group('caption'),
+                source_img_ref.group('path')
+            )
+
+        return self._source_img_ref_pattern.sub(_sub, content)
 
     def apply(self):
         if self.context["target"] != 'pdf':
@@ -42,34 +76,5 @@ class Preprocessor(BasePreprocessor):
                     content = markdown_file.read()
 
                 with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                    markdown_file.write(self.process_eps_paths(content))
-
-            mogrify_geometry = ''
-
-            if self.options["image_width"] > 0:
-                mogrify_geometry = f'-geometry {self.options["image_width"]}'
-
-            for eps_file_path in self.working_dir.rglob('*.eps'):
-                try:
-                    command = f'{self.options["mogrify_path"]} -format png {mogrify_geometry} {eps_file_path}'
-                    run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
-
-                except CalledProcessError as exception:
-                    raise RuntimeError(f'Failed: {exception.output.decode()}')
-
-                try:
-                    Path(eps_file_path).unlink()
-
-                except PermissionError:
-                    pass
-
-            if self.options["diagrams_cache_dir"].is_dir():
-                for eps_file_path in self.options["diagrams_cache_dir"].rglob('*.eps'):
-                    command = f'{self.options["mogrify_path"]} -format png {mogrify_geometry} {eps_file_path}'
-
-                    if not Path(eps_file_path).with_suffix('.png').is_file():
-                        try:
-                            run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
-
-                        except CalledProcessError as exception:
-                            raise RuntimeError(f'Failed: {exception.output.decode()}')
+                    self._current_dir = markdown_file_path.parent
+                    markdown_file.write(self.process_epsconvert(content))
