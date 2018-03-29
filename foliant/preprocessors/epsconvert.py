@@ -27,11 +27,16 @@ class Preprocessor(BasePreprocessor):
         self._current_dir = self.working_dir
 
     def _process_epsconvert(self, img_caption: str, img_path: str) -> str:
-        img_path_hash = md5(f'{img_path}'.encode())
-        img_path_hash.update(f'{self.options["image_width"]}'.encode())
-
         source_img_path = self._current_dir / img_path
-        cached_img_path = self._cache_path / f'{img_path_hash.hexdigest()}.png'
+
+        img_hash = md5(f'{img_path}'.encode())
+        img_hash.update(f'{self.options["image_width"]}'.encode())
+
+        with open(source_img_path.absolute().as_posix(), 'rb') as source_img_file:
+            source_img_file_body = source_img_file.read()
+            img_hash.update(f'{source_img_file_body}'.encode())
+
+        cached_img_path = self._cache_path / f'{img_hash.hexdigest()}.png'
         cached_img_ref = f'![{img_caption}]({cached_img_path.absolute().as_posix()})'
 
         if cached_img_path.exists():
