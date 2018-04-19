@@ -17,6 +17,7 @@ class Preprocessor(BasePreprocessor):
         'convert_path': 'convert',
         'cache_dir': Path('.epsconvertcache'),
         'image_width': 0,
+        'targets': [],
     }
 
     def __init__(self, *args, **kwargs):
@@ -29,8 +30,7 @@ class Preprocessor(BasePreprocessor):
     def _process_epsconvert(self, img_caption: str, img_path: str) -> str:
         source_img_path = self._current_dir / img_path
 
-        img_hash = md5(f'{img_path}'.encode())
-        img_hash.update(f'{self.options["image_width"]}'.encode())
+        img_hash = md5(f'{self.options["image_width"]}'.encode())
 
         with open(source_img_path.absolute().as_posix(), 'rb') as source_img_file:
             source_img_file_body = source_img_file.read()
@@ -75,7 +75,7 @@ class Preprocessor(BasePreprocessor):
         return self._source_img_ref_pattern.sub(_sub, content)
 
     def apply(self):
-        if self.context["target"] != 'pdf':
+        if not self.options['targets'] or self.context['target'] in self.options['targets']:
             for markdown_file_path in self.working_dir.rglob('*.md'):
                 with open(markdown_file_path, encoding='utf8') as markdown_file:
                     content = markdown_file.read()

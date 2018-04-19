@@ -12,3 +12,9 @@
 # 1.0.3
 
 - Take into account the content of image file when computing MD5 hash.
+
+
+# 1.0.4
+
+- Do not use image path when computing MD5 hash.
+- Add `targets` config option.
