@@ -18,3 +18,4 @@
 
 - Do not use image path when computing MD5 hash.
 - Add `targets` config option.
+- Add logging.

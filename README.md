@@ -25,6 +25,11 @@ preprocessors:
         convert_path: convert
         cache_dir: !path .epsconvertcache
         image_width: 0
+        targets:
+            - pre
+            - mkdocs
+            - site
+            - ghp
 ```
 
 `convert_path`
@@ -35,3 +40,6 @@ preprocessors:
 
 `image_width`
 :   Width of PNG images in pixels. By default (in case when the value is `0`), the width of each image is set by ImageMagick automatically. Default behavior is recommended. If the width is given explicitly, file size may increase.
+
+`targets`
+:   Allowed targets for the preprocessor. If not specified (by default), the preprocessor applies to all targets.
