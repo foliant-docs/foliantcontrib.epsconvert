@@ -1,6 +1,6 @@
 # EPSConvert
 
-EPSConvert is a tool to convert EPS images into PNG format. This operation applies to any target excluding `pdf`.
+EPSConvert is a tool to convert EPS images into PNG format.
 
 ## Installation
 
