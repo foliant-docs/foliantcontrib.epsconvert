@@ -1,3 +1,7 @@
+# 1.0.6
+
+-   Bug fix: update current directory path before processing of Markdown file content, not after.
+
 # 1.0.5
 
 -   Do not rewrite source Markdown file if an error occurs.

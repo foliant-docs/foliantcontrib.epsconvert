@@ -24,26 +24,26 @@ class Preprocessor(BasePreprocessor):
         super().__init__(*args, **kwargs)
 
         self._source_img_ref_pattern = re.compile("!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+\/[^\/]+\.eps)\)")
-        self._cache_path = self.project_path / self.options['cache_dir']
-        self._current_dir = self.working_dir
+        self._cache_path = (self.project_path / self.options['cache_dir']).resolve()
+        self._current_dir_path = self.working_dir.resolve()
 
         self.logger = self.logger.getChild('epsconvert')
 
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
 
     def _process_epsconvert(self, img_caption: str, img_path: str) -> str:
-        source_img_path = self._current_dir / img_path
+        source_img_path = (self._current_dir_path / img_path).resolve()
 
         self.logger.debug(f'Source image path: {source_img_path}')
 
         img_hash = md5(f'{self.options["image_width"]}'.encode())
 
-        with open(source_img_path.absolute().as_posix(), 'rb') as source_img_file:
+        with open(source_img_path, 'rb') as source_img_file:
             source_img_file_body = source_img_file.read()
             img_hash.update(f'{source_img_file_body}'.encode())
 
-        cached_img_path = self._cache_path / f'{img_hash.hexdigest()}.png'
-        cached_img_ref = f'![{img_caption}]({cached_img_path.absolute().as_posix()})'
+        cached_img_path = (self._cache_path / f'{img_hash.hexdigest()}.png').resolve()
+        cached_img_ref = f'![{img_caption}]({cached_img_path})'
 
         self.logger.debug(f'Cached image path: {cached_img_path}')
 
@@ -56,15 +56,19 @@ class Preprocessor(BasePreprocessor):
 
         resize_options = ''
 
-        if self.options["image_width"] > 0:
+        if self.options['image_width'] > 0:
             resize_options = f'-resize {self.options["image_width"]}'
 
         try:
-            command = f'{self.options["convert_path"]} ' \
-                      f'{source_img_path.absolute().as_posix()} ' \
-                      f'-format png ' \
-                      f'{resize_options} ' \
-                      f'{cached_img_path.absolute().as_posix()}'
+            command = (
+                f'{self.options["convert_path"]} ' +
+                f'"{source_img_path}" ' +
+                f'-format png ' +
+                f'{resize_options} ' +
+                f'"{cached_img_path}"'
+            )
+
+            self.logger.debug(f'Running the command: {command}')
 
             run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
@@ -96,6 +100,8 @@ class Preprocessor(BasePreprocessor):
 
         if not self.options['targets'] or self.context['target'] in self.options['targets']:
             for markdown_file_path in self.working_dir.rglob('*.md'):
+                self._current_dir_path = markdown_file_path.parent.resolve()
+
                 with open(markdown_file_path, encoding='utf8') as markdown_file:
                     content = markdown_file.read()
 
@@ -103,7 +109,6 @@ class Preprocessor(BasePreprocessor):
 
                 if processed_content:
                     with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                        self._current_dir = markdown_file_path.parent
                         markdown_file.write(processed_content)
 
         self.logger.info('Preprocessor applied')
