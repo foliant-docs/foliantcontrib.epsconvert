@@ -23,7 +23,10 @@ class Preprocessor(BasePreprocessor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._source_img_ref_pattern = re.compile("!\[(?P<caption>.*)\]\((?P<path>((?!:\/\/).)+\/[^\/]+\.eps)\)")
+        self._source_img_ref_pattern = re.compile(
+            r'\!\[(?P<caption>.*)\]\((?P<path>((?!\:\/\/).)*[^\/\s]+\.eps)\)'
+        )
+
         self._cache_path = (self.project_path / self.options['cache_dir']).resolve()
         self._current_dir_path = self.working_dir.resolve()
 
@@ -42,17 +45,18 @@ class Preprocessor(BasePreprocessor):
             source_img_file_body = source_img_file.read()
             img_hash.update(f'{source_img_file_body}'.encode())
 
-        cached_img_path = (self._cache_path / f'{img_hash.hexdigest()}.png').resolve()
-        cached_img_ref = f'![{img_caption}]({cached_img_path})'
+        converted_img_path = (self._cache_path / f'{img_hash.hexdigest()}.png').resolve()
 
-        self.logger.debug(f'Cached image path: {cached_img_path}')
+        self.logger.debug(f'Converted image path: {converted_img_path}')
 
-        if cached_img_path.exists():
-            self.logger.debug(f'Cached image already exists')
+        converted_img_ref = f'![{img_caption}]({converted_img_path})'
 
-            return cached_img_ref
+        if converted_img_path.exists():
+            self.logger.debug(f'Converted image already exists')
 
-        cached_img_path.parent.mkdir(parents=True, exist_ok=True)
+            return converted_img_ref
+
+        converted_img_path.parent.mkdir(parents=True, exist_ok=True)
 
         resize_options = ''
 
@@ -63,16 +67,15 @@ class Preprocessor(BasePreprocessor):
             command = (
                 f'{self.options["convert_path"]} ' +
                 f'"{source_img_path}" ' +
-                f'-format png ' +
                 f'{resize_options} ' +
-                f'"{cached_img_path}"'
+                f'"{converted_img_path}"'
             )
 
             self.logger.debug(f'Running the command: {command}')
 
             run(command, shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
-            self.logger.debug(f'Cached image saved, width: {self.options["image_width"]} (0 means auto)')
+            self.logger.debug(f'Converted image saved, width: {self.options["image_width"]} (0 means auto)')
 
         except CalledProcessError as exception:
             self.logger.error(str(exception))
@@ -81,7 +84,7 @@ class Preprocessor(BasePreprocessor):
                 f'Processing of image {img_path} failed: {exception.output.decode()}'
             )
 
-        return cached_img_ref
+        return converted_img_ref
 
     def process_epsconvert(self, content: str) -> str:
         def _sub(source_img_ref) -> str:

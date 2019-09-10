@@ -1,3 +1,7 @@
+# 1.0.7
+
+-   Fix image reference detection pattern, other minor fixes.
+
 # 1.0.6
 
 -   Bug fix: update current directory path before processing of Markdown file content, not after.
